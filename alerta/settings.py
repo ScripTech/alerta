@@ -88,6 +88,7 @@ HMAC_AUTH_CREDENTIALS = [
     #     'algorithm': 'sha256'  # valid hmac algorithm eg. sha256, sha384, sha512
     # }
 ]  # type: List[Dict[str, Any]]
+HMAC_NONCE_TTL = 300  # seconds
 
 AUTH_PROXY = False
 AUTH_PROXY_USER_HEADER = 'X-Proxy-User'  # header field containing the authenticated username (X-Forwarded-User)
@@ -291,6 +292,20 @@ FWD_DESTINATIONS = [
     # ('http://localhost:9000', {'key': 'my-api-key'}, ['alerts', 'actions']),  # API key
     # ('http://localhost:9000', {'token': 'bearer-token'}, ['alerts', 'actions']),  # Bearer token
 ]  # type: List[Tuple]
+
+# async forwarding settings
+FORWARDING_MODE = False  # False=synchronous (default), True=queue-based async forwarding
+FORWARDING_BACKEND = 'memory'  # memory or redis
+FORWARD_BATCH_SIZE = 50
+FORWARD_MAX_RETRIES = 3
+FORWARD_RETRY_BACKOFF = 2
+FORWARD_DLQ_ENABLED = True
+FORWARD_IDEMPOTENCY_TTL = 600
+FORWARD_REDIS_URL = 'redis://localhost:6379/0'
+FORWARD_REDIS_STREAM = 'alerta:forward'
+FORWARD_REDIS_GROUP = 'alerta-forwarders'
+FORWARD_REDIS_CONSUMER = 'alerta-worker'
+FORWARD_REDIS_DLQ_STREAM = 'alerta:forward:dlq'
 
 # valid actions=['*', 'alerts', 'actions', 'open', 'assign', 'ack', 'unack', 'shelve', 'unshelve', 'close', 'delete']
 

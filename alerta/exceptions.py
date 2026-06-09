@@ -50,6 +50,9 @@ class ForwardingLoop(BaseError):
     """Forwarding loop detected."""
     pass
 
+class ForwardingQueue(BaseError):
+    """Error occurred while processing forwarding queue."""
+    pass
 
 class InvalidAction(BaseError):
     """Invalid or redundant action for the current alert status or severity."""

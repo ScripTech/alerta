@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Any, Optional
 from flask import request
 
 from alerta.exceptions import ForwardingLoop
+from alerta.forwarding.service import ForwarderQueueService
 from alerta.plugins import PluginBase
-from alerta.utils.client import Client
 from alerta.utils.response import base_url
 
 if TYPE_CHECKING:
@@ -41,6 +41,7 @@ class Forwarder(PluginBase):
         return alert
 
     def post_receive(self, alert: 'Alert', **kwargs) -> Optional['Alert']:
+        async_mode = self.get_config('FORWARDING_MODE', default=False, type=bool, **kwargs)
 
         for remote, auth, actions in self.get_config('FWD_DESTINATIONS', default=[], type=list, **kwargs):
             if is_in_xloop(remote):
@@ -51,18 +52,26 @@ class Forwarder(PluginBase):
                 continue
 
             headers = {X_LOOP_HEADER: append_to_header(base_url())}
-            client = Client(endpoint=remote, headers=headers, **auth)
 
             LOG.info(f'Forward [action=alerts]: {alert.id} ; {base_url()} -> {remote}')
             try:
-                body = alert.get_body(history=False)
-                body['id'] = alert.last_receive_id
-                # FIXME - createTime is being overwritten by send_alert()
-                r = client.send_alert(**body)
+                job = ForwarderQueueService.build_alert_job(
+                    alert=alert,
+                    remote=remote,
+                    auth=auth,
+                    headers=headers,
+                    config=kwargs.get('config', {}),
+                )
+                if async_mode:
+                    LOG.info(f'Forward [action=alerts]: {alert.id} ; Publishing job to queue for remote {remote}')
+                    ForwarderQueueService.publish(job, config=kwargs.get('config', {}))
+                else:
+                    LOG.info(f'Forward [action=alerts]: {alert.id} ; Executing job synchronously for remote {remote}')
+                    ForwarderQueueService.execute(job)
             except Exception as e:
                 LOG.warning(f'Forward [action=alerts]: {alert.id} ; Failed to forward alert to {remote} - {str(e)}')
                 continue
-            LOG.debug(f'Forward [action=alerts]: {alert.id} ; [{r.status_code}] {r.text}')
+            LOG.debug(f'Forward [action=alerts]: {alert.id} ; queued={async_mode}')
 
         return alert
 
@@ -70,6 +79,7 @@ class Forwarder(PluginBase):
         return
 
     def take_action(self, alert: 'Alert', action: str, text: str, **kwargs) -> Any:
+        async_mode = self.get_config('FORWARDING_MODE', default=False, type=bool, **kwargs)
 
         if is_in_xloop(base_url()):
             http_origin = request.origin or '(unknown)'  # type: ignore
@@ -86,19 +96,31 @@ class Forwarder(PluginBase):
                 continue
 
             headers = {X_LOOP_HEADER: append_to_header(base_url())}
-            client = Client(endpoint=remote, headers=headers, **auth)
 
             LOG.info(f'Forward [action={action}]: {alert.id} ; {base_url()} -> {remote}')
             try:
-                r = client.action(alert.id, action, text)
+                job = ForwarderQueueService.build_action_job(
+                    alert_id=alert.id,
+                    action=action,
+                    text=text,
+                    remote=remote,
+                    auth=auth,
+                    headers=headers,
+                    config=kwargs.get('config', {}),
+                )
+                if async_mode:
+                    ForwarderQueueService.publish(job, config=kwargs.get('config', {}))
+                else:
+                    ForwarderQueueService.execute(job)
             except Exception as e:
                 LOG.warning(f'Forward [action={action}]: {alert.id} ; Failed to action alert on {remote} - {str(e)}')
                 continue
-            LOG.debug(f'Forward [action={action}]: {alert.id} ; [{r.status_code}] {r.text}')
+            LOG.debug(f'Forward [action={action}]: {alert.id} ; queued={async_mode}')
 
         return alert
 
     def delete(self, alert: 'Alert', **kwargs) -> bool:
+        async_mode = self.get_config('FORWARDING_MODE', default=False, type=bool, **kwargs)
 
         if is_in_xloop(base_url()):
             http_origin = request.origin or '(unknown)'  # type: ignore
@@ -113,14 +135,23 @@ class Forwarder(PluginBase):
                 continue
 
             headers = {X_LOOP_HEADER: append_to_header(base_url())}
-            client = Client(endpoint=remote, headers=headers, **auth)
 
             LOG.info(f'Forward [action=delete]: {alert.id} ; {base_url()} -> {remote}')
             try:
-                r = client.delete_alert(alert.id)
+                job = ForwarderQueueService.build_delete_job(
+                    alert_id=alert.id,
+                    remote=remote,
+                    auth=auth,
+                    headers=headers,
+                    config=kwargs.get('config', {}),
+                )
+                if async_mode:
+                    ForwarderQueueService.publish(job, config=kwargs.get('config', {}))
+                else:
+                    ForwarderQueueService.execute(job)
             except Exception as e:
                 LOG.warning(f'Forward [action=delete]: {alert.id} ; Failed to delete alert on {remote} - {str(e)}')
                 continue
-            LOG.debug(f'Forward [action=delete]: {alert.id} ; [{r.status_code}] {r.text}')
+            LOG.debug(f'Forward [action=delete]: {alert.id} ; queued={async_mode}')
 
         return True  # always continue with local delete even if remote delete(s) fail

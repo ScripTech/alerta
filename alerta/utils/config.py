@@ -113,6 +113,21 @@ class Config:
 
         config['CLIPBOARD_TEMPLATE'] = get_config('CLIPBOARD_TEMPLATE', default=None, type=str, config=config)
 
+        # forwarding plugin - async forwarding of alerts and actions to remote Alerta instances
+        config['FWD_DESTINATIONS'] = get_config('FWD_DESTINATIONS', default=[], type=list, config=config)
+        config['FORWARDING_MODE'] = get_config('FORWARDING_MODE', default=False, type=bool, config=config)
+        config['FORWARD_BATCH_SIZE'] = get_config('FORWARD_BATCH_SIZE', default=50, type=int, config=config)
+        config['FORWARDING_BACKEND'] = get_config('FORWARDING_BACKEND', default='memory', type=str, config=config)
+        config['FORWARD_MAX_RETRIES'] = get_config('FORWARD_MAX_RETRIES', default=3, type=int, config=config)
+        config['FORWARD_RETRY_BACKOFF'] = get_config('FORWARD_RETRY_BACKOFF', default=2, type=int, config=config)
+        config['FORWARD_DLQ_ENABLED'] = get_config('FORWARD_DLQ_ENABLED', default=True, type=bool, config=config)
+        config['FORWARD_IDEMPOTENCY_TTL'] = get_config('FORWARD_IDEMPOTENCY_TTL', default=600, type=int, config=config)
+        config['FORWARD_REDIS_URL'] = get_config('FORWARD_REDIS_URL', default='redis://localhost:6379/0', type=str, config=config)
+        config['FORWARD_REDIS_STREAM'] = get_config('FORWARD_REDIS_STREAM', default='alerta:forward', type=str, config=config)
+        config['FORWARD_REDIS_GROUP'] = get_config('FORWARD_REDIS_GROUP', default='alerta-forwarders', type=str, config=config)
+        config['FORWARD_REDIS_CONSUMER'] = get_config('FORWARD_REDIS_CONSUMER', default='alerta-worker', type=str, config=config)
+        config['FORWARD_REDIS_DLQ_STREAM'] = get_config('FORWARD_REDIS_DLQ_STREAM', default='alerta:forward:dlq', type=str, config=config)
+
         # Runtime config check
         if config['CUSTOMER_VIEWS'] and not config['AUTH_REQUIRED']:
             raise RuntimeError('Must enable authentication to use customer views')
