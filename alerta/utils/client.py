@@ -16,14 +16,15 @@ class Client:
 
     DEFAULT_ENDPOINT = 'http://localhost:8080'
 
-    def __init__(self, endpoint=None, key=None, secret=None, token=None, username=None, password=None, timeout=5.0, ssl_verify=True, headers=None, debug=False):
+    def __init__(self, endpoint=None, key=None, secret=None, token=None, username=None, password=None, timeout=5.0, ssl_verify=True, headers=None, debug=False, always_hash_content=True):
         self.endpoint = endpoint or os.environ.get('ALERTA_ENDPOINT', self.DEFAULT_ENDPOINT)
+        self.always_hash_content = always_hash_content
 
         if debug:
             HTTPConnection.debuglevel = 1
 
         key = key or os.environ.get('ALERTA_API_KEY', '')
-        self.http = HTTPClient(self.endpoint, key, secret, token, username, password, timeout, ssl_verify, headers, debug)
+        self.http = HTTPClient(self.endpoint, key, secret, token, username, password, timeout, ssl_verify, headers, debug, always_hash_content=self.always_hash_content)
 
     def send_alert(self, resource, event, **kwargs):
         data = {
@@ -84,14 +85,14 @@ class TokenAuth(AuthBase):
 class HTTPClient:
 
     def __init__(self, endpoint, key=None, secret=None, token=None, username=None, password=None, timeout=30.0,
-                 ssl_verify=True, headers=None, debug=False):
+                 ssl_verify=True, headers=None, debug=False, always_hash_content=True):
         self.endpoint = endpoint
         self.auth = None
 
         if username:
             self.auth = HTTPBasicAuth(username, password)
         elif secret:
-            self.auth = HawkAuth(id=key, key=secret)  # HMAC
+            self.auth = HawkAuth(id=key, key=secret, always_hash_content=always_hash_content)  # HMAC
         elif key:
             self.auth = ApiKeyAuth(api_key=key)
         elif token:

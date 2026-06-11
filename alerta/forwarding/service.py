@@ -151,6 +151,7 @@ class ForwarderQueueService:
             client.action(job.payload['alert_id'], job.payload['action'], job.payload.get('text', ''))
             return
         if job.kind == 'delete':
+            client = Client(endpoint=job.remote, headers=job.headers, **job.auth, always_hash_content=False)
             client.delete_alert(job.payload['alert_id'])
             return
         raise ForwardingQueue(f'Unknown forwarding job kind: {job.kind}')
